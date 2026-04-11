@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JSON Epoch Date Transformer</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="brand-row">
+                <div class="brand-title">JSON Epoch Date Transformer</div>
+            </div>
+        </header>
+
+        <main class="main-grid">
+            <section class="panel panel-editor">
+                <div class="panel-head">
+                    <span>Input JSON</span>
+                </div>
+                <div class="panel-body">
+                    <textarea id="jsonInput" placeholder='Paste your JSON here, e.g.&#10;{&#10;  "user": "alice",&#10;  "created_at": 1712345678,&#10;  "updated_at": 1712445678000&#10;}'></textarea>
+                    <div id="jsonHint" class="hint-text hidden"></div>
+                </div>
+                <div class="card card-orange">
+                    <div class="card-label">Epoch Fields</div>
+                    <button class="btn-detect" id="detectBtn">Auto-detect fields</button>
+                    <div id="fieldChips" class="field-chips-area">
+                        <span class="placeholder-text">No fields selected yet</span>
+                    </div>
+                    <div class="manual-row">
+                        <input type="text" id="manualField" placeholder="Custom path e.g. data.ts" />
+                        <button class="btn-add" id="addFieldBtn">+ Add</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel panel-controls">
+                <div class="card card-teal">
+                    <div class="card-label">Timezone</div>
+                    <input type="text" id="timezoneSearch" placeholder="Search timezone..." />
+                    <select id="timezoneSelect">
+                        <option value="UTC">UTC</option>
+                    </select>
+                </div>
+
+                <div class="card card-orange">
+                    <div class="card-label">Date Format</div>
+                    <input type="text" id="dateFormat" value="yyyy-MM-dd HH:mm:ss z" placeholder="yyyy-MM-dd HH:mm:ss z" />
+                    <div class="format-presets">
+                        <button class="btn-preset" data-fmt="yyyy-MM-dd HH:mm:ss z">Default</button>
+                        <button class="btn-preset" data-fmt="MM/dd/yyyy hh:mm a z">US</button>
+                        <button class="btn-preset" data-fmt="dd-MM-yyyy HH:mm:ss">EU</button>
+                        <button class="btn-preset" data-fmt="yyyy-MM-dd'T'HH:mm:ssXXX">ISO 8601</button>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-transform" id="transformBtn">
+                        Transform
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                            <polyline points="12 5 19 12 12 19"/>
+                        </svg>
+                    </button>
+                    <button class="btn-clear" id="clearJsonBtn">Clear</button>
+                </div>
+            </section>
+
+            <section class="panel panel-output">
+                <div class="panel-head panel-head-right">
+                    <span>Code</span>
+                    <div class="output-top-actions">
+                        <span id="transformedCount" class="badge hidden"></span>
+                        <button class="btn-out" id="expandAllBtn" disabled>Expand All</button>
+                        <button class="btn-out" id="collapseAllBtn" disabled>Collapse All</button>
+                    </div>
+                </div>
+                <div id="outputArea" class="output-area">
+                    <div class="output-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <polyline points="16 18 22 12 16 6"/>
+                            <polyline points="8 6 2 12 8 18"/>
+                        </svg>
+                        <p>Output appears here after transform...</p>
+                    </div>
+                </div>
+                <div id="errorBanner" class="error-banner hidden"></div>
+                <div class="output-btn-row">
+                    <button class="btn-copy" id="copyBtn" disabled>Copy JSON</button>
+                    <button class="btn-dl" id="downloadBtn" disabled>Download</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
