@@ -29,10 +29,6 @@ const dropZone         = document.getElementById('dropZone');
 const dropOverlay      = document.getElementById('dropOverlay');
 const shareBtn         = document.getElementById('shareBtn');
 const copyInputBtn     = document.getElementById('copyInputBtn');
-const epochSeconds     = document.getElementById('epochSeconds');
-const epochMillis      = document.getElementById('epochMillis');
-const copyEpochSeconds = document.getElementById('copyEpochSeconds');
-const copyEpochMillis  = document.getElementById('copyEpochMillis');
 
 // ===== Init =====
 async function init() {
@@ -560,27 +556,6 @@ function syncActivePreset() {
         btn.classList.toggle('active', btn.dataset.fmt === activeFmt);
     });
 }
-
-// ===== Live Epoch Clock =====
-function tickEpoch() {
-    const now = Date.now();
-    epochSeconds.textContent = Math.floor(now / 1000).toLocaleString('en-US', { useGrouping: false });
-    epochMillis.textContent  = now.toLocaleString('en-US', { useGrouping: false });
-}
-tickEpoch();
-setInterval(tickEpoch, 1000);
-
-function copyEpochValue(btn, getVal) {
-    navigator.clipboard.writeText(getVal()).then(() => {
-        const orig = btn.innerHTML;
-        btn.classList.add('copied');
-        btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = orig; }, 1500);
-    });
-}
-
-copyEpochSeconds.addEventListener('click', () => copyEpochValue(copyEpochSeconds, () => epochSeconds.textContent));
-copyEpochMillis.addEventListener('click',  () => copyEpochValue(copyEpochMillis,  () => epochMillis.textContent));
 
 // ===== Start =====
 init();
