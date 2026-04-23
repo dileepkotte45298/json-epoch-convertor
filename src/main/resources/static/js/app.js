@@ -29,6 +29,9 @@ const dropZone         = document.getElementById('dropZone');
 const dropOverlay      = document.getElementById('dropOverlay');
 const shareBtn         = document.getElementById('shareBtn');
 const copyInputBtn     = document.getElementById('copyInputBtn');
+const howBtn           = document.getElementById('howBtn');
+const howModal         = document.getElementById('howModal');
+const howModalClose    = document.getElementById('howModalClose');
 
 // ===== Init =====
 async function init() {
@@ -54,6 +57,9 @@ function bindEvents() {
     detectBtn.addEventListener('click', detectFields);
     clearJsonBtn.addEventListener('click', clearAll);
     addFieldBtn.addEventListener('click', addManualField);
+    howBtn.addEventListener('click', () => howModal.classList.remove('hidden'));
+    howModalClose.addEventListener('click', () => howModal.classList.add('hidden'));
+    howModal.addEventListener('click', (e) => { if (e.target === howModal) howModal.classList.add('hidden'); });
     shareBtn.addEventListener('click', shareApp);
     copyInputBtn.addEventListener('click', copyInput);
     fileInput.addEventListener('change', handleFileSelect);

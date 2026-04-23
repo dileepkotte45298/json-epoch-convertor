@@ -16,7 +16,15 @@
                 <div class="brand-left">
                     <div class="brand-title">JSON Epoch Converter</div>
                 </div>
-<button class="btn-share" id="shareBtn" title="Copy link to clipboard">
+                <button class="btn-how" id="howBtn" title="How to use">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    How to use
+                </button>
+                <button class="btn-share" id="shareBtn" title="Copy link to clipboard">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                         <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
@@ -124,6 +132,43 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <!-- How to use modal -->
+    <div id="howModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">How to Use</span>
+                <button class="modal-close" id="howModalClose" title="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <ol class="how-steps">
+                    <li>
+                        <div class="step-title">Paste or Upload JSON</div>
+                        <div class="step-desc">Paste your JSON directly into the <strong>Input JSON</strong> panel, or click <strong>Upload JSON</strong> to load a <code>.json</code> file. You can also drag and drop a file onto the panel.</div>
+                    </li>
+                    <li>
+                        <div class="step-title">Transform</div>
+                        <div class="step-desc">Click <strong>Transform</strong>. Epoch fields are auto-detected and converted automatically — no manual selection needed.</div>
+                    </li>
+                    <li>
+                        <div class="step-title">Select Fields (optional)</div>
+                        <div class="step-desc">Use <strong>Auto-detect fields</strong> to review which fields will be converted, or type a custom path (e.g. <code>data.ts</code>) and click <strong>+ Add</strong> to target specific fields.</div>
+                    </li>
+                    <li>
+                        <div class="step-title">Choose Timezone &amp; Format</div>
+                        <div class="step-desc">Search and select your <strong>Timezone</strong>. Pick a <strong>Date Format</strong> preset (Default, US, EU, ISO 8601) or type a custom pattern.</div>
+                    </li>
+                    <li>
+                        <div class="step-title">View &amp; Export Output</div>
+                        <div class="step-desc">The converted JSON appears in the <strong>Code</strong> panel. Use <strong>Copy JSON</strong> to copy it to clipboard, or <strong>Download</strong> to save it as a file.</div>
+                    </li>
+                </ol>
+                <div class="how-note">
+                    Supports both <strong>seconds</strong> (10-digit) and <strong>milliseconds</strong> (13-digit) epoch values — detected automatically.
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="/js/app.js"></script>
