@@ -12,11 +12,14 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 @Service
 public class TransformService {
+
+    private static final Pattern EPOCH_STRING_PATTERN = Pattern.compile("\\d{10,13}");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -29,8 +32,11 @@ public class TransformService {
                     : "yyyy-MM-dd HH:mm:ss z";
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format).withZone(zoneId);
 
+            // Use a Set for O(1) field lookup instead of List.contains() O(n)
+            Set<String> fieldSet = new HashSet<>(request.getFields());
+
             AtomicInteger count = new AtomicInteger(0);
-            JsonNode transformed = transformNode(root, request.getFields(), formatter, count);
+            JsonNode transformed = transformNode(root, fieldSet, formatter, count);
             String result = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(transformed);
             return new TransformResponse(result, count.get());
         } catch (Exception e) {
@@ -38,9 +44,10 @@ public class TransformService {
         }
     }
 
-    private JsonNode transformNode(JsonNode node, List<String> fields, DateTimeFormatter formatter, AtomicInteger count) {
+    private JsonNode transformNode(JsonNode node, Set<String> fields, DateTimeFormatter formatter, AtomicInteger count) {
         if (node.isObject()) {
-            ObjectNode obj = (ObjectNode) node.deepCopy();
+            // Build a fresh ObjectNode instead of deepCopy() — avoids O(n²) for large arrays
+            ObjectNode obj = objectMapper.createObjectNode();
             node.fields().forEachRemaining(entry -> {
                 String key = entry.getKey();
                 JsonNode value = entry.getValue();
@@ -63,14 +70,13 @@ public class TransformService {
         return node;
     }
 
-    /** Extracts a long epoch from either a numeric node or a string node containing only digits. */
     private Long extractEpoch(JsonNode value) {
         if (value.isNumber()) {
             return value.longValue();
         }
         if (value.isTextual()) {
             String text = value.asText().trim();
-            if (text.matches("\\d{10,13}")) {
+            if (EPOCH_STRING_PATTERN.matcher(text).matches()) {
                 try {
                     return Long.parseLong(text);
                 } catch (NumberFormatException ignored) {
@@ -81,7 +87,6 @@ public class TransformService {
     }
 
     private String convertEpoch(long epoch, DateTimeFormatter formatter) {
-        // Auto-detect millis vs seconds: if > 1e10, treat as milliseconds
         Instant instant = (epoch > 9_999_999_999L)
                 ? Instant.ofEpochMilli(epoch)
                 : Instant.ofEpochSecond(epoch);
@@ -92,15 +97,16 @@ public class TransformService {
     public List<String> detectEpochFields(String jsonInput) {
         try {
             JsonNode root = objectMapper.readTree(jsonInput);
-            List<String> detected = new java.util.ArrayList<>();
+            // LinkedHashSet: O(1) contains check + preserves insertion order + no duplicates
+            Set<String> detected = new LinkedHashSet<>();
             detectInNode(root, detected);
-            return detected;
+            return new ArrayList<>(detected);
         } catch (Exception e) {
             return List.of();
         }
     }
 
-    private void detectInNode(JsonNode node, List<String> detected) {
+    private void detectInNode(JsonNode node, Set<String> detected) {
         if (node.isObject()) {
             node.fields().forEachRemaining(entry -> {
                 JsonNode value = entry.getValue();
@@ -109,7 +115,7 @@ public class TransformService {
                     isEpoch = looksLikeEpoch(value.longValue());
                 } else if (value.isTextual()) {
                     String text = value.asText().trim();
-                    if (text.matches("\\d{10,13}")) {
+                    if (EPOCH_STRING_PATTERN.matcher(text).matches()) {
                         try {
                             isEpoch = looksLikeEpoch(Long.parseLong(text));
                         } catch (NumberFormatException ignored) {
@@ -117,9 +123,7 @@ public class TransformService {
                     }
                 }
                 if (isEpoch) {
-                    if (!detected.contains(entry.getKey())) {
-                        detected.add(entry.getKey());
-                    }
+                    detected.add(entry.getKey());
                 } else {
                     detectInNode(value, detected);
                 }
@@ -130,8 +134,6 @@ public class TransformService {
     }
 
     private boolean looksLikeEpoch(long value) {
-        // Seconds: ~1e9 to ~2e10 (year 2001–2286)
-        // Millis:  ~1e12 to ~2e13
         return (value >= 1_000_000_000L && value <= 20_000_000_000L)
                 || (value >= 1_000_000_000_000L && value <= 20_000_000_000_000L);
     }

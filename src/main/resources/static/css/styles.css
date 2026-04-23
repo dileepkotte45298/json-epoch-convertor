@@ -51,11 +51,56 @@ body {
     gap: 12px;
 }
 
+.brand-left {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.btn-share {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #e2e8f0;
+    background: transparent;
+    border: 1px solid #4a6480;
+    border-radius: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+}
+
+.btn-share:hover {
+    background: #1f2f43;
+    color: #ffffff;
+    border-color: #6a8aa5;
+}
+
+.btn-share.copied {
+    color: #1fb39f;
+    border-color: #1fb39f;
+}
+
 .brand-title {
     font-size: 37px;
     font-weight: 700;
     color: #ffffff;
     letter-spacing: -0.03em;
+}
+
+.brand-domain {
+    font-size: 11px;
+    font-weight: 600;
+    color: #1fb39f;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border: 1px solid #2a4f68;
+    border-radius: 2px;
+    margin-left: 4px;
+    align-self: center;
 }
 
 .top-nav {
@@ -176,6 +221,76 @@ input[type="text"]:focus,
 select:focus,
 textarea:focus {
     box-shadow: inset 0 0 0 1px #3b82f6;
+}
+
+.panel-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-copy-input {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 6px;
+    background: transparent;
+    border: 1px solid #4a6480;
+    border-radius: 2px;
+    color: #c7dce8;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.btn-copy-input:hover {
+    background: #1f2f43;
+    color: #ffffff;
+    border-color: #6a8aa5;
+}
+
+.btn-copy-input.copied {
+    color: #1fb39f;
+    border-color: #1fb39f;
+}
+
+.btn-upload-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #c7dce8;
+    border: 1px solid #4a6480;
+    border-radius: 2px;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1;
+}
+
+.btn-upload-label:hover {
+    background: #1f2f43;
+    color: #ffffff;
+    border-color: #6a8aa5;
+}
+
+.panel-body {
+    position: relative;
+}
+
+.drop-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(31, 179, 159, 0.12);
+    border: 2px dashed #1fb39f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f766e;
+    pointer-events: none;
+    z-index: 10;
 }
 
 .btn-detect,

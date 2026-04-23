@@ -24,6 +24,11 @@ const downloadBtn      = document.getElementById('downloadBtn');
 const expandAllBtn     = document.getElementById('expandAllBtn');
 const collapseAllBtn   = document.getElementById('collapseAllBtn');
 const transformedCount = document.getElementById('transformedCount');
+const fileInput        = document.getElementById('fileInput');
+const dropZone         = document.getElementById('dropZone');
+const dropOverlay      = document.getElementById('dropOverlay');
+const shareBtn         = document.getElementById('shareBtn');
+const copyInputBtn     = document.getElementById('copyInputBtn');
 
 // ===== Init =====
 async function init() {
@@ -49,6 +54,12 @@ function bindEvents() {
     detectBtn.addEventListener('click', detectFields);
     clearJsonBtn.addEventListener('click', clearAll);
     addFieldBtn.addEventListener('click', addManualField);
+    shareBtn.addEventListener('click', shareApp);
+    copyInputBtn.addEventListener('click', copyInput);
+    fileInput.addEventListener('change', handleFileSelect);
+    dropZone.addEventListener('dragover', handleDragOver);
+    dropZone.addEventListener('dragleave', handleDragLeave);
+    dropZone.addEventListener('drop', handleDrop);
     manualField.addEventListener('keydown', e => { if (e.key === 'Enter') addManualField(); });
     transformBtn.addEventListener('click', transformJson);
     copyBtn.addEventListener('click', copyOutput);
@@ -90,6 +101,91 @@ function renderTimezoneOptions(searchValue, preferredZone) {
         opt.selected = true;
         timezoneSelect.appendChild(opt);
     }
+}
+
+// ===== Copy Input =====
+function copyInput() {
+    const text = jsonInput.value.trim();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+        copyInputBtn.classList.add('copied');
+        copyInputBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        setTimeout(() => {
+            copyInputBtn.classList.remove('copied');
+            copyInputBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+        }, 1500);
+    });
+}
+
+// ===== Share =====
+function shareApp() {
+    const url = 'https://jsonepochconverter.org';
+    navigator.clipboard.writeText(url).then(() => {
+        shareBtn.classList.add('copied');
+        shareBtn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg> Link Copied!`;
+        setTimeout(() => {
+            shareBtn.classList.remove('copied');
+            shareBtn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg> Share`;
+        }, 2000);
+    });
+}
+
+// ===== File Upload / Drag & Drop =====
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) loadFile(file);
+    fileInput.value = '';
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    dropOverlay.classList.remove('hidden');
+}
+
+function handleDragLeave(e) {
+    if (!dropZone.contains(e.relatedTarget)) {
+        dropOverlay.classList.add('hidden');
+    }
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    dropOverlay.classList.add('hidden');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+        showHint('Please drop a .json file');
+        return;
+    }
+    loadFile(file);
+}
+
+function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        try {
+            const parsed = JSON.parse(text);
+            jsonInput.value = JSON.stringify(parsed, null, 2);
+        } catch {
+            jsonInput.value = text;
+        }
+        hideHint();
+        hideError();
+        state.selectedFields.clear();
+        renderChips();
+        clearOutput();
+    };
+    reader.onerror = () => showHint('Failed to read file');
+    reader.readAsText(file);
 }
 
 // ===== Field Detection =====
@@ -164,7 +260,6 @@ function clearAll() {
 async function transformJson() {
     const json = jsonInput.value.trim();
     if (!json) { showHint('Paste JSON first'); return; }
-    if (state.selectedFields.size === 0) { showError('Please select at least one field to transform.'); return; }
 
     hideHint();
     hideError();
@@ -176,6 +271,26 @@ async function transformJson() {
         </svg> Transforming...`;
 
     try {
+        // Auto-detect fields if none selected
+        if (state.selectedFields.size === 0) {
+            const detRes = await fetch('/api/detect-fields', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonInput: json })
+            });
+            const detData = await detRes.json();
+            if (detData.fields && detData.fields.length > 0) {
+                detData.fields.forEach(f => state.selectedFields.add(f));
+                renderChips();
+            } else {
+                showError('No epoch fields detected. Add fields manually.');
+                transformBtn.disabled = false;
+                transformBtn.classList.remove('loading');
+                transformBtn.innerHTML = `Transform <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+                return;
+            }
+        }
+
         const res = await fetch('/api/transform', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -203,6 +318,19 @@ async function transformJson() {
 }
 
 // ===== Output Rendering =====
+const TREE_NODE_LIMIT = 500; // fall back to raw view above this
+
+function countNodes(node) {
+    if (!node || typeof node !== 'object') return 1;
+    let total = 1;
+    if (Array.isArray(node)) {
+        for (const item of node) { total += countNodes(item); if (total > TREE_NODE_LIMIT) break; }
+    } else {
+        for (const k of Object.keys(node)) { total += countNodes(node[k]); if (total > TREE_NODE_LIMIT) break; }
+    }
+    return total;
+}
+
 function renderOutput(json, count) {
     state.lastTransformedJson = json;
 
@@ -210,12 +338,32 @@ function renderOutput(json, count) {
     wrap.className = 'json-tree fade-in';
 
     try {
-        wrap.appendChild(buildTreeNode(JSON.parse(json), null, true));
+        const parsed = JSON.parse(json);
+        const nodeCount = countNodes(parsed);
+        if (nodeCount > TREE_NODE_LIMIT) {
+            // Raw view for large JSON — tree renderer would freeze the browser
+            const pre = document.createElement('pre');
+            pre.style.cssText = 'padding:14px;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-all;';
+            pre.textContent = json;
+            const note = document.createElement('div');
+            note.style.cssText = 'padding:6px 14px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0;';
+            note.textContent = `Large output (${nodeCount}+ nodes) — displayed as raw text for performance`;
+            wrap.appendChild(note);
+            wrap.appendChild(pre);
+            expandAllBtn.disabled = true;
+            collapseAllBtn.disabled = true;
+        } else {
+            wrap.appendChild(buildTreeNode(parsed, null, true));
+            expandAllBtn.disabled = false;
+            collapseAllBtn.disabled = false;
+        }
     } catch {
         const pre = document.createElement('pre');
-        pre.style.cssText = 'padding:14px;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-all;';
+        pre.style.cssText = 'padding:14px;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-all;';
         pre.innerHTML = syntaxHighlight(json);
         wrap.appendChild(pre);
+        expandAllBtn.disabled = true;
+        collapseAllBtn.disabled = true;
     }
 
     outputArea.innerHTML = '';
@@ -223,8 +371,6 @@ function renderOutput(json, count) {
 
     copyBtn.disabled = false;
     downloadBtn.disabled = false;
-    expandAllBtn.disabled = false;
-    collapseAllBtn.disabled = false;
     transformedCount.textContent = `${count} field${count !== 1 ? 's' : ''} transformed`;
     transformedCount.classList.remove('hidden');
 }
@@ -368,7 +514,7 @@ function downloadOutput() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'transformed.json';
+    a.download = 'converted.json';
     a.click();
     URL.revokeObjectURL(url);
 }
