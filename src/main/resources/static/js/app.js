@@ -3,7 +3,28 @@ const state = {
     selectedFields: new Set(),
     lastTransformedJson: '',
     allTimezones: ['UTC'],
+    worker: null,
 };
+
+// ===== Web Worker =====
+function getWorker() {
+    if (!state.worker) {
+        state.worker = new Worker('/js/worker.js?v=2.9');
+    }
+    return state.worker;
+}
+
+function workerPost(type, payload) {
+    return new Promise((resolve, reject) => {
+        const worker = getWorker();
+        worker.onmessage = (e) => {
+            if (e.data.type === 'error') reject(new Error(e.data.message));
+            else resolve(e.data);
+        };
+        worker.onerror = (e) => reject(new Error(e.message || 'Worker error'));
+        worker.postMessage({ type, payload });
+    });
+}
 
 // ===== DOM refs =====
 const jsonInput        = document.getElementById('jsonInput');
@@ -40,11 +61,26 @@ function init() {
     syncActivePreset();
 }
 
+// IANA renamed these zones — map old names to modern equivalents
+const TIMEZONE_ALIASES = {
+    'Asia/Calcutta':       'Asia/Kolkata',
+    'Asia/Katmandu':       'Asia/Kathmandu',
+    'Asia/Rangoon':        'Asia/Yangon',
+    'Asia/Saigon':         'Asia/Ho_Chi_Minh',
+    'Asia/Ulaanbaatar':    'Asia/Ulan_Bator',
+    'Africa/Asmera':       'Africa/Asmara',
+    'America/Buenos_Aires':'America/Argentina/Buenos_Aires',
+    'Pacific/Truk':        'Pacific/Chuuk',
+    'Pacific/Ponape':      'Pacific/Pohnpei',
+};
+
 // ===== Timezones — fully client-side via Intl API =====
 function loadTimezones() {
     try {
-        const zones = Intl.supportedValuesOf('timeZone');
-        state.allTimezones = zones.length ? zones.sort() : ['UTC'];
+        const raw = Intl.supportedValuesOf('timeZone');
+        const zones = raw.map(z => TIMEZONE_ALIASES[z] || z);
+        // deduplicate after aliasing and sort
+        state.allTimezones = [...new Set(zones)].sort();
     } catch {
         // Fallback for browsers that don't support Intl.supportedValuesOf
         state.allTimezones = [
@@ -415,8 +451,8 @@ function transformTree(root, fieldSet, timezone, pattern) {
     return { transformed, count };
 }
 
-// ===== Field Detection (client-side) =====
-function detectFields() {
+// ===== Field Detection (via worker) =====
+async function detectFields() {
     const json = jsonInput.value.trim();
     if (!json) { showHint('Paste JSON first'); return; }
 
@@ -425,10 +461,9 @@ function detectFields() {
     hideHint();
 
     try {
-        const parsed = safeParseJson(json);
-        const fields = detectEpochFieldsInTree(parsed);
-        if (fields.length > 0) {
-            fields.forEach(f => state.selectedFields.add(f));
+        const result = await workerPost('detect', { jsonText: json });
+        if (result.fields && result.fields.length > 0) {
+            result.fields.forEach(f => state.selectedFields.add(f));
             renderChips();
         } else {
             showHint('No epoch-like fields detected. Add fields manually.');
@@ -479,8 +514,8 @@ function clearAll() {
     hideError();
 }
 
-// ===== Transform (fully client-side) =====
-function transformJson() {
+// ===== Transform (via worker — non-blocking) =====
+async function transformJson() {
     const json = jsonInput.value.trim();
     if (!json) { showHint('Paste JSON first'); return; }
 
@@ -493,35 +528,36 @@ function transformJson() {
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg> Transforming...`;
 
-    // Use setTimeout to allow the browser to repaint before heavy work
-    setTimeout(() => {
-        try {
-            const parsed = safeParseJson(json);
-
-            if (state.selectedFields.size === 0) {
-                const fields = detectEpochFieldsInTree(parsed);
-                if (fields.length === 0) {
-                    showError('No epoch fields detected. Add fields manually.');
-                    return;
-                }
-                fields.forEach(f => state.selectedFields.add(f));
-                renderChips();
+    try {
+        // If no fields selected, detect first via worker
+        if (state.selectedFields.size === 0) {
+            const detected = await workerPost('detect', { jsonText: json });
+            if (!detected.fields || detected.fields.length === 0) {
+                showError('No epoch fields detected. Add fields manually.');
+                return;
             }
-
-            const timezone = timezoneSelect.value || 'UTC';
-            const pattern  = dateFormat.value.trim() || 'yyyy-MM-dd HH:mm:ss z';
-
-            const { transformed, count } = transformTree(parsed, state.selectedFields, timezone, pattern);
-            const resultJson = JSON.stringify(transformed, null, 2);
-            renderOutput(resultJson, count);
-        } catch (err) {
-            showError('Transform failed: ' + err.message);
-        } finally {
-            transformBtn.disabled = false;
-            transformBtn.classList.remove('loading');
-            transformBtn.innerHTML = `Transform <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+            detected.fields.forEach(f => state.selectedFields.add(f));
+            renderChips();
         }
-    }, 10);
+
+        const timezone = timezoneSelect.value || 'UTC';
+        const pattern  = dateFormat.value.trim() || 'yyyy-MM-dd HH:mm:ss z';
+
+        const result = await workerPost('transform', {
+            jsonText:   json,
+            fields:     [...state.selectedFields],
+            timezone,
+            dateFormat: pattern,
+        });
+
+        renderOutput(result.resultJson, result.count);
+    } catch (err) {
+        showError('Transform failed: ' + err.message);
+    } finally {
+        transformBtn.disabled = false;
+        transformBtn.classList.remove('loading');
+        transformBtn.innerHTML = `Transform <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+    }
 }
 
 // ===== Output Rendering =====
