@@ -29,27 +29,49 @@ const dropZone         = document.getElementById('dropZone');
 const dropOverlay      = document.getElementById('dropOverlay');
 const shareBtn         = document.getElementById('shareBtn');
 const copyInputBtn     = document.getElementById('copyInputBtn');
-const howBtn           = document.getElementById('howBtn');
-const howModal         = document.getElementById('howModal');
-const howModalClose    = document.getElementById('howModalClose');
+const aboutBtn         = document.getElementById('aboutBtn');
+const aboutModal       = document.getElementById('aboutModal');
+const aboutModalClose  = document.getElementById('aboutModalClose');
 
 // ===== Init =====
-async function init() {
-    await loadTimezones();
+function init() {
+    loadTimezones();
     bindEvents();
     syncActivePreset();
 }
 
-async function loadTimezones() {
+// ===== Timezones — fully client-side via Intl API =====
+function loadTimezones() {
     try {
-        const res = await fetch('/api/timezones');
-        const zones = await res.json();
-        state.allTimezones = Array.isArray(zones) && zones.length ? zones : ['UTC'];
-        renderTimezoneOptions('', 'UTC');
+        const zones = Intl.supportedValuesOf('timeZone');
+        state.allTimezones = zones.length ? zones.sort() : ['UTC'];
     } catch {
-        state.allTimezones = ['UTC'];
-        renderTimezoneOptions('', 'UTC');
+        // Fallback for browsers that don't support Intl.supportedValuesOf
+        state.allTimezones = [
+            'UTC',
+            'Africa/Cairo', 'Africa/Johannesburg', 'Africa/Lagos',
+            'America/Anchorage', 'America/Argentina/Buenos_Aires', 'America/Chicago',
+            'America/Denver', 'America/Halifax', 'America/Honolulu',
+            'America/Los_Angeles', 'America/Mexico_City', 'America/New_York',
+            'America/Sao_Paulo', 'America/Toronto', 'America/Vancouver',
+            'Asia/Bangkok', 'Asia/Colombo', 'Asia/Dhaka', 'Asia/Dubai',
+            'Asia/Hong_Kong', 'Asia/Jakarta', 'Asia/Karachi', 'Asia/Kolkata',
+            'Asia/Kuala_Lumpur', 'Asia/Manila', 'Asia/Seoul', 'Asia/Shanghai',
+            'Asia/Singapore', 'Asia/Taipei', 'Asia/Tehran', 'Asia/Tokyo',
+            'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Melbourne',
+            'Australia/Perth', 'Australia/Sydney',
+            'Europe/Amsterdam', 'Europe/Athens', 'Europe/Berlin', 'Europe/Brussels',
+            'Europe/Budapest', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Helsinki',
+            'Europe/Istanbul', 'Europe/Kiev', 'Europe/Lisbon', 'Europe/London',
+            'Europe/Madrid', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris',
+            'Europe/Prague', 'Europe/Rome', 'Europe/Stockholm', 'Europe/Vienna',
+            'Europe/Warsaw', 'Europe/Zurich',
+            'Pacific/Auckland', 'Pacific/Fiji', 'Pacific/Honolulu',
+            'US/Alaska', 'US/Arizona', 'US/Central', 'US/Eastern',
+            'US/Hawaii', 'US/Mountain', 'US/Pacific',
+        ];
     }
+    renderTimezoneOptions('', 'UTC');
 }
 
 // ===== Events =====
@@ -57,9 +79,9 @@ function bindEvents() {
     detectBtn.addEventListener('click', detectFields);
     clearJsonBtn.addEventListener('click', clearAll);
     addFieldBtn.addEventListener('click', addManualField);
-    howBtn.addEventListener('click', () => howModal.classList.remove('hidden'));
-    howModalClose.addEventListener('click', () => howModal.classList.add('hidden'));
-    howModal.addEventListener('click', (e) => { if (e.target === howModal) howModal.classList.add('hidden'); });
+    aboutBtn.addEventListener('click', () => aboutModal.classList.remove('hidden'));
+    aboutModalClose.addEventListener('click', () => aboutModal.classList.add('hidden'));
+    aboutModal.addEventListener('click', (e) => { if (e.target === aboutModal) aboutModal.classList.add('hidden'); });
     shareBtn.addEventListener('click', shareApp);
     copyInputBtn.addEventListener('click', copyInput);
     fileInput.addEventListener('change', handleFileSelect);
@@ -179,7 +201,7 @@ function loadFile(file) {
     reader.onload = (e) => {
         const text = e.target.result;
         try {
-            const parsed = JSON.parse(text);
+            const parsed = JSON.parse(preprocessJsonString(text));
             jsonInput.value = JSON.stringify(parsed, null, 2);
         } catch {
             jsonInput.value = text;
@@ -194,8 +216,207 @@ function loadFile(file) {
     reader.readAsText(file);
 }
 
-// ===== Field Detection =====
-async function detectFields() {
+// ===== JSON Preprocessing =====
+// Replace bare 19+ digit integers with quoted strings before JSON.parse
+// to prevent JavaScript from losing nanosecond precision
+// (Number.MAX_SAFE_INTEGER ≈ 9×10^15, nano timestamps are ~10^18)
+function preprocessJsonString(jsonStr) {
+    return jsonStr.replace(/([:,\[]\s*)(\d{19,})(\s*[,\]\}])/g, '$1"$2"$3');
+}
+
+function safeParseJson(text) {
+    return JSON.parse(preprocessJsonString(text));
+}
+
+// ===== Client-side Epoch Detection =====
+
+const EPOCH_PATTERN = /^\d{10,19}$/;
+
+function looksLikeEpoch(numStr) {
+    if (!EPOCH_PATTERN.test(numStr)) return false;
+    const n = parseFloat(numStr);
+    return (n >= 1e9  && n <= 2e10)  ||  // seconds (10-11 digits)
+           (n >= 1e12 && n <= 2e13)  ||  // milliseconds (13-14 digits)
+           (n >= 1e15 && n <= 2e16)  ||  // microseconds (16-17 digits)
+           (n >= 1e18);                   // nanoseconds (19+ digits)
+}
+
+function extractEpochStr(value) {
+    if (typeof value === 'number') {
+        const s = String(Math.round(value));
+        return looksLikeEpoch(s) ? s : null;
+    }
+    if (typeof value === 'string') {
+        const s = value.trim();
+        return looksLikeEpoch(s) ? s : null;
+    }
+    return null;
+}
+
+function detectEpochFieldsInTree(root) {
+    const detected = new Set();
+    function walk(node) {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node)) {
+            node.forEach(walk);
+        } else {
+            for (const [key, value] of Object.entries(node)) {
+                if (extractEpochStr(value) !== null) {
+                    detected.add(key);
+                } else {
+                    walk(value);
+                }
+            }
+        }
+    }
+    walk(root);
+    return [...detected];
+}
+
+// ===== Client-side Epoch Conversion =====
+
+function epochStrToMs(s) {
+    const digits = s.trim().length;
+    if (digits >= 19) {
+        try {
+            // Use BigInt to preserve nanosecond precision
+            const big = BigInt(s.trim());
+            return Number(big / 1000000n);
+        } catch {
+            return Math.floor(parseFloat(s) / 1e6);
+        }
+    }
+    if (digits >= 16) return Math.floor(Number(s) / 1000);  // microseconds
+    if (digits >= 13) return Number(s);                       // milliseconds
+    return Number(s) * 1000;                                  // seconds
+}
+
+// Convert epoch string to formatted date string using a Java DateTimeFormatter pattern.
+// Supported tokens: yyyy/yy, MM/M, dd/d, HH/H, hh/h, mm/m, ss/s, a, z, Z, X/XX/XXX, 'literal'
+function formatEpoch(epochStr, timezone, javaPattern) {
+    const ms = epochStrToMs(epochStr);
+    const date = new Date(ms);
+    const tz = timezone || 'UTC';
+    const pattern = javaPattern || 'yyyy-MM-dd HH:mm:ss z';
+
+    // Build component sets via Intl.DateTimeFormat to handle any timezone
+    const p24 = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).formatToParts(date);
+
+    const p12 = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hour: '2-digit', minute: '2-digit',
+        hour12: true
+    }).formatToParts(date);
+
+    const pShort = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        timeZoneName: 'short'
+    }).formatToParts(date);
+
+    const pOffset = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        timeZoneName: 'longOffset'
+    }).formatToParts(date);
+
+    const get = (parts, type) => (parts.find(p => p.type === type) || {}).value || '';
+
+    const year   = get(p24, 'year');
+    const month  = get(p24, 'month');
+    const day    = get(p24, 'day');
+    let hour24   = get(p24, 'hour');
+    if (hour24 === '24') hour24 = '00';   // some browsers use 24 for midnight
+    const minute = get(p24, 'minute');
+    const second = get(p24, 'second');
+    const hour12 = get(p12, 'hour').padStart(2, '0');
+    const ampm   = (get(p12, 'dayPeriod') || '').toUpperCase() || (parseInt(hour24) < 12 ? 'AM' : 'PM');
+    const tzShort = get(pShort, 'timeZoneName');
+
+    // rawOffset: "+05:30", "-05:00", or "+00:00"
+    let rawOffset = get(pOffset, 'timeZoneName').replace(/^GMT/, '') || '+00:00';
+    if (!rawOffset || rawOffset === '') rawOffset = '+00:00';
+    rawOffset = rawOffset.replace(/^([+-])(\d):/, '$10$2:'); // +5:30 → +05:30
+    if (/^[+-]\d{2}$/.test(rawOffset)) rawOffset += ':00';  // +05 → +05:00
+
+    let result = '';
+    let i = 0;
+
+    while (i < pattern.length) {
+        const ch = pattern[i];
+
+        if (ch === "'") {
+            i++;
+            while (i < pattern.length && pattern[i] !== "'") result += pattern[i++];
+            if (i < pattern.length) i++;
+            continue;
+        }
+
+        let j = i;
+        while (j < pattern.length && pattern[j] === ch) j++;
+        const count = j - i;
+        i = j;
+
+        switch (ch) {
+            case 'y': result += count >= 4 ? year : year.slice(-2); break;
+            case 'M': result += count >= 2 ? month : String(parseInt(month, 10)); break;
+            case 'd': result += count >= 2 ? day   : String(parseInt(day, 10)); break;
+            case 'H': result += count >= 2 ? hour24.padStart(2, '0') : String(parseInt(hour24, 10)); break;
+            case 'h': result += count >= 2 ? hour12 : String(parseInt(hour12, 10)); break;
+            case 'm': result += count >= 2 ? minute : String(parseInt(minute, 10)); break;
+            case 's': result += count >= 2 ? second : String(parseInt(second, 10)); break;
+            case 'a': result += ampm; break;
+            case 'z': result += tzShort; break;
+            case 'Z': result += rawOffset.replace(':', ''); break;
+            case 'X':
+                if (rawOffset === '+00:00') { result += 'Z'; break; }
+                if (count === 1)       result += rawOffset.replace(/:00$/, '');
+                else if (count === 2)  result += rawOffset.replace(':', '');
+                else                   result += rawOffset;
+                break;
+            default:
+                result += ch.repeat(count);
+        }
+    }
+
+    return result;
+}
+
+// ===== Client-side Transformation =====
+
+function transformTree(root, fieldSet, timezone, pattern) {
+    let count = 0;
+
+    function walk(node) {
+        if (node === null || typeof node !== 'object') return node;
+        if (Array.isArray(node)) return node.map(walk);
+
+        const obj = {};
+        for (const [key, value] of Object.entries(node)) {
+            if (fieldSet.has(key)) {
+                const epochStr = extractEpochStr(value);
+                if (epochStr !== null) {
+                    obj[key] = formatEpoch(epochStr, timezone, pattern);
+                    count++;
+                } else {
+                    obj[key] = walk(value);
+                }
+            } else {
+                obj[key] = walk(value);
+            }
+        }
+        return obj;
+    }
+
+    const transformed = walk(root);
+    return { transformed, count };
+}
+
+// ===== Field Detection (client-side) =====
+function detectFields() {
     const json = jsonInput.value.trim();
     if (!json) { showHint('Paste JSON first'); return; }
 
@@ -204,20 +425,16 @@ async function detectFields() {
     hideHint();
 
     try {
-        const res = await fetch('/api/detect-fields', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonInput: json })
-        });
-        const data = await res.json();
-        if (data.fields && data.fields.length > 0) {
-            data.fields.forEach(f => state.selectedFields.add(f));
+        const parsed = safeParseJson(json);
+        const fields = detectEpochFieldsInTree(parsed);
+        if (fields.length > 0) {
+            fields.forEach(f => state.selectedFields.add(f));
             renderChips();
         } else {
             showHint('No epoch-like fields detected. Add fields manually.');
         }
     } catch (err) {
-        showHint('Detection failed: ' + err.message);
+        showHint('Invalid JSON: ' + err.message);
     } finally {
         detectBtn.textContent = 'Auto-detect fields';
         detectBtn.disabled = false;
@@ -262,8 +479,8 @@ function clearAll() {
     hideError();
 }
 
-// ===== Transform =====
-async function transformJson() {
+// ===== Transform (fully client-side) =====
+function transformJson() {
     const json = jsonInput.value.trim();
     if (!json) { showHint('Paste JSON first'); return; }
 
@@ -276,55 +493,39 @@ async function transformJson() {
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
         </svg> Transforming...`;
 
-    try {
-        // Auto-detect fields if none selected
-        if (state.selectedFields.size === 0) {
-            const detRes = await fetch('/api/detect-fields', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonInput: json })
-            });
-            const detData = await detRes.json();
-            if (detData.fields && detData.fields.length > 0) {
-                detData.fields.forEach(f => state.selectedFields.add(f));
-                renderChips();
-            } else {
-                showError('No epoch fields detected. Add fields manually.');
-                transformBtn.disabled = false;
-                transformBtn.classList.remove('loading');
-                transformBtn.innerHTML = `Transform <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
-                return;
-            }
-        }
+    // Use setTimeout to allow the browser to repaint before heavy work
+    setTimeout(() => {
+        try {
+            const parsed = safeParseJson(json);
 
-        const res = await fetch('/api/transform', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonInput: json,
-                fields: [...state.selectedFields],
-                timezone: timezoneSelect.value,
-                dateFormat: dateFormat.value.trim() || 'yyyy-MM-dd HH:mm:ss z'
-            })
-        });
-        const data = await res.json();
-        if (data.error) {
-            showError(data.error);
-            clearOutput();
-        } else {
-            renderOutput(data.transformedJson, data.fieldsTransformed);
+            if (state.selectedFields.size === 0) {
+                const fields = detectEpochFieldsInTree(parsed);
+                if (fields.length === 0) {
+                    showError('No epoch fields detected. Add fields manually.');
+                    return;
+                }
+                fields.forEach(f => state.selectedFields.add(f));
+                renderChips();
+            }
+
+            const timezone = timezoneSelect.value || 'UTC';
+            const pattern  = dateFormat.value.trim() || 'yyyy-MM-dd HH:mm:ss z';
+
+            const { transformed, count } = transformTree(parsed, state.selectedFields, timezone, pattern);
+            const resultJson = JSON.stringify(transformed, null, 2);
+            renderOutput(resultJson, count);
+        } catch (err) {
+            showError('Transform failed: ' + err.message);
+        } finally {
+            transformBtn.disabled = false;
+            transformBtn.classList.remove('loading');
+            transformBtn.innerHTML = `Transform <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
         }
-    } catch (err) {
-        showError('Request failed: ' + err.message);
-    } finally {
-        transformBtn.disabled = false;
-        transformBtn.classList.remove('loading');
-        transformBtn.innerHTML = `Transform <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
-    }
+    }, 10);
 }
 
 // ===== Output Rendering =====
-const TREE_NODE_LIMIT = 500; // fall back to raw view above this
+const TREE_NODE_LIMIT = 500;
 
 function countNodes(node) {
     if (!node || typeof node !== 'object') return 1;
@@ -347,7 +548,6 @@ function renderOutput(json, count) {
         const parsed = JSON.parse(json);
         const nodeCount = countNodes(parsed);
         if (nodeCount > TREE_NODE_LIMIT) {
-            // Raw view for large JSON — tree renderer would freeze the browser
             const pre = document.createElement('pre');
             pre.style.cssText = 'padding:14px;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-all;';
             pre.textContent = json;
