@@ -3,12 +3,50 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JSON Epoch Converter — jsonepochconverter.org</title>
-    <meta name="description" content="Convert epoch timestamps inside JSON to human-readable dates. Supports any timezone and date format." />
-    <meta name="keywords" content="json epoch converter, unix timestamp, epoch to date, json date transform" />
+    <title>JSON Epoch Converter — Convert Unix Timestamps in JSON Online</title>
+    <meta name="description" content="Free online tool to convert epoch/Unix timestamps inside JSON to human-readable dates. Supports seconds, milliseconds, microseconds, and nanoseconds. Choose any timezone and date format." />
+    <meta name="keywords" content="json epoch converter, unix timestamp converter, epoch to date, json timestamp converter, convert epoch milliseconds, epoch nanoseconds converter, unix time to date, json date transformer, online epoch converter" />
     <link rel="canonical" href="https://jsonepochconverter.org/" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="JSON Epoch Converter — Convert Unix Timestamps in JSON" />
+    <meta property="og:description" content="Paste or upload JSON and instantly convert all epoch timestamps to readable dates. Supports seconds, milliseconds, microseconds and nanoseconds." />
+    <meta property="og:url" content="https://jsonepochconverter.org/" />
+    <meta property="og:type" content="website" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="JSON Epoch Converter" />
+    <meta name="twitter:description" content="Convert epoch/Unix timestamps inside JSON to human-readable dates. Free online tool." />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "JSON Epoch Converter",
+      "url": "https://jsonepochconverter.org",
+      "description": "Free online tool to convert Unix epoch timestamps embedded in JSON data to human-readable date and time. Supports seconds, milliseconds, microseconds, and nanoseconds with any timezone and date format.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Auto-detect epoch fields in JSON",
+        "Supports seconds, milliseconds, microseconds, nanoseconds",
+        "Any timezone conversion",
+        "Custom date format patterns",
+        "Upload or paste JSON",
+        "Download converted JSON"
+      ]
+    }
+    </script>
+
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6923936351791681" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="/css/styles.css?v=1.4" />
+    <link rel="stylesheet" href="/css/styles.css?v=1.5" />
 </head>
 <body>
     <div class="app-shell">
@@ -135,6 +173,60 @@
         </main>
     </div>
 
+    <!-- SEO Content Section -->
+    <section class="seo-section">
+        <div class="seo-inner">
+            <div class="seo-intro">
+                <h1>JSON Epoch Converter</h1>
+                <p>A free online tool to convert Unix/epoch timestamps embedded inside JSON data into human-readable dates. Paste your JSON, upload a file, or drop it onto the panel — epoch fields are auto-detected and converted instantly.</p>
+            </div>
+
+            <div class="seo-features">
+                <div class="seo-feature">
+                    <h3>Seconds &amp; Milliseconds</h3>
+                    <p>Automatically detects 10-digit (seconds) and 13-digit (milliseconds) Unix timestamps in any JSON structure.</p>
+                </div>
+                <div class="seo-feature">
+                    <h3>Microseconds &amp; Nanoseconds</h3>
+                    <p>Full support for high-precision 16-digit (microseconds) and 19-digit (nanoseconds) epoch values used in modern distributed systems.</p>
+                </div>
+                <div class="seo-feature">
+                    <h3>Any Timezone</h3>
+                    <p>Convert epoch timestamps to any timezone worldwide. Search from 600+ IANA timezones including UTC, IST, PST, EST, and more.</p>
+                </div>
+                <div class="seo-feature">
+                    <h3>Custom Date Formats</h3>
+                    <p>Choose from presets (ISO 8601, US, EU) or define your own date format pattern using standard Java date format tokens.</p>
+                </div>
+            </div>
+
+            <div class="seo-faq">
+                <h2>Frequently Asked Questions</h2>
+
+                <div class="faq-item">
+                    <h3>What is an epoch timestamp?</h3>
+                    <p>An epoch timestamp (also called Unix timestamp) is the number of seconds, milliseconds, microseconds, or nanoseconds elapsed since January 1, 1970 (UTC). It is widely used in APIs, databases, and log files.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>How do I convert epoch timestamps in JSON?</h3>
+                    <p>Paste your JSON into the Input panel and click Transform. The tool automatically detects numeric epoch fields and replaces them with readable date strings in your chosen timezone and format.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Does it support millisecond and nanosecond precision?</h3>
+                    <p>Yes. The converter supports seconds (10-digit), milliseconds (13-digit), microseconds (16-digit), and nanoseconds (19-digit) epoch values — all detected and converted automatically.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I upload large JSON files?</h3>
+                    <p>Yes. The tool supports JSON files up to 50MB via file upload or drag and drop. Large outputs are rendered as raw text to maintain browser performance.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Is this tool free to use?</h3>
+                    <p>Yes, JSON Epoch Converter is completely free with no sign-up required.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- How to use modal -->
     <div id="howModal" class="modal-backdrop hidden">
         <div class="modal">
@@ -172,6 +264,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=1.4"></script>
+    <script src="/js/app.js?v=1.5"></script>
 </body>
 </html>
