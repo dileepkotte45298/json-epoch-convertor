@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
 @Service
 public class TransformService {
 
-    private static final Pattern EPOCH_STRING_PATTERN = Pattern.compile("\\d{10,13}");
+    private static final Pattern EPOCH_STRING_PATTERN = Pattern.compile("\\d{10,19}");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -87,9 +87,20 @@ public class TransformService {
     }
 
     private String convertEpoch(long epoch, DateTimeFormatter formatter) {
-        Instant instant = (epoch > 9_999_999_999L)
-                ? Instant.ofEpochMilli(epoch)
-                : Instant.ofEpochSecond(epoch);
+        Instant instant;
+        if (epoch >= 1_000_000_000_000_000_000L) {
+            // Nanoseconds (19 digits)
+            instant = Instant.ofEpochSecond(epoch / 1_000_000_000L, epoch % 1_000_000_000L);
+        } else if (epoch >= 1_000_000_000_000_000L) {
+            // Microseconds (16 digits)
+            instant = Instant.ofEpochMilli(epoch / 1_000L);
+        } else if (epoch >= 1_000_000_000_000L) {
+            // Milliseconds (13 digits)
+            instant = Instant.ofEpochMilli(epoch);
+        } else {
+            // Seconds (10 digits)
+            instant = Instant.ofEpochSecond(epoch);
+        }
         ZonedDateTime zdt = ZonedDateTime.ofInstant(instant, formatter.getZone());
         return zdt.format(formatter);
     }
@@ -134,7 +145,9 @@ public class TransformService {
     }
 
     private boolean looksLikeEpoch(long value) {
-        return (value >= 1_000_000_000L && value <= 20_000_000_000L)
-                || (value >= 1_000_000_000_000L && value <= 20_000_000_000_000L);
+        return (value >= 1_000_000_000L    && value <= 20_000_000_000L)         // seconds (10-11 digits)
+            || (value >= 1_000_000_000_000L    && value <= 20_000_000_000_000L)     // milliseconds (13-14 digits)
+            || (value >= 1_000_000_000_000_000L && value <= 20_000_000_000_000_000L) // microseconds (16-17 digits)
+            || (value >= 1_000_000_000_000_000_000L);                               // nanoseconds (19+ digits)
     }
 }
